@@ -5,12 +5,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>tech.mlsql</groupId>
-    <artifactId>spark-adhoc-kafka</artifactId>
+    <artifactId>spark-adhoc-kafka_2.11</artifactId>
     <version>0.1.0</version>
-    <name>Delta Plus</name>
+    <name>Spark AdHoc Kafka Datasource</name>
     <url>https://github.com/allwefantasy/spark-adhoc-kafka.git</url>
     <description>
-
+        This is a datasource implementation for quick querying Kafka with Spark. It's very quick if you just
+        filter data.
     </description>
     <licenses>
         <license>
