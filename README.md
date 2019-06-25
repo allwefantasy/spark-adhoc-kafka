@@ -44,5 +44,5 @@ kafka.bootstrap.servers="127.0.0.1:9200"
 and multiplyFactor="2" 
 as table1;
 
-select * from table1 where value like %yes% as output;
+select count(*) from table1 where value like "%yes%" as output;
 ```
