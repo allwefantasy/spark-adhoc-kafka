@@ -6,6 +6,7 @@ import org.apache.kafka.common.TopicPartition
 import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.kafka010.{KafkaTest, KafkaTestUtils}
 import org.apache.spark.sql.test.SharedSQLContext
+import org.joda.time.DateTime
 import org.json4s.NoTypeHints
 import org.json4s.jackson.Serialization
 
@@ -85,6 +86,66 @@ class AdhocKafkaSuite extends QueryTest with SharedSQLContext with KafkaTest {
     assert(df.rdd.partitions.size == 9)
     assert(df.count() == 21)
 
+
+  }
+
+  test("fetch kafka data by time interval") {
+    val topic = newTopic()
+    testUtils.createTopic(topic, partitions = 3)
+    testUtils.sendMessages(topic, (0 to 9).map(_.toString).toArray, Some(0))
+    testUtils.sendMessages(topic, (10 to 19).map(_.toString).toArray, Some(1))
+    testUtils.sendMessages(topic, Array("20"), Some(2))
+
+    // Specify explicit earliest and latest offset values
+    Thread.sleep(3000)
+    val time = DateTime.now()
+
+    testUtils.sendMessages(topic, Array("21"), Some(0))
+    testUtils.sendMessages(topic, Array("22"), Some(1))
+    testUtils.sendMessages(topic, Array("23", "24"), Some(2))
+
+    var df = createDF(topic,
+      withOptions = Map(
+        "startingOffsets" -> "earliest",
+        "endingOffsets" -> "latest",
+        "multiplyFactor" -> "2",
+        "timeFormat" -> "yyyyMMdd HHmmss S",
+        "startingTime" -> time.toString("yyyyMMdd HHmmss S")
+      )
+    )
+    assert(df.rdd.partitions.size == 4)
+    assert(df.count() == 4)
+
+    testUtils.sendMessages(topic, Array("25"), Some(0))
+    Thread.sleep(1000)
+    val time2 = DateTime.now()
+
+    df = createDF(topic,
+      withOptions = Map(
+        "multiplyFactor" -> "2",
+        "timeFormat" -> "yyyyMMdd HHmmss S",
+        "startingTime" -> time.toString("yyyyMMdd HHmmss S"),
+        "endingTime" -> time2.toString("yyyyMMdd HHmmss S")
+      )
+    )
+    assert(df.rdd.partitions.size == 5)
+    assert(df.count() == 5)
+
+    val time3 = DateTime.now()
+    Thread.sleep(1000)
+    testUtils.sendMessages(topic, Array("26", "27"), Some(0))
+
+    df = createDF(topic,
+      withOptions = Map(
+        "multiplyFactor" -> "2",
+        "timeFormat" -> "yyyyMMdd HHmmss S",
+        "startingTime" -> time.toString("yyyyMMdd HHmmss S"),
+        "endingTime" -> time3.toString("yyyyMMdd HHmmss S")
+      )
+    )
+
+    assert(df.rdd.partitions.size == 5)
+    assert(df.count() == 5)
 
   }
 

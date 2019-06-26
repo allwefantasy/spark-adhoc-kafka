@@ -22,15 +22,18 @@ class AdHocKafkaRelation(
                           startingOffsets: KafkaOffsetRangeLimit,
                           endingOffsets: KafkaOffsetRangeLimit)
   extends BaseRelation with TableScan with Logging {
+
+  import AdHocKafkaSourceProvider._
+
   assert(startingOffsets != LatestOffsetRangeLimit,
     "Starting offset not allowed to be set to latest offsets.")
   assert(endingOffsets != EarliestOffsetRangeLimit,
     "Ending offset not allowed to be set to earliest offsets.")
 
-  if (sourceOptions.contains(AdHocKafkaSourceProvider.STARTING_TIME_OPTION_KEY) ||
-    sourceOptions.contains(AdHocKafkaSourceProvider.ENDING_TIME_OPTION_KEY)) {
-    assert(sourceOptions.contains(AdHocKafkaSourceProvider.TIME_FORMAT_OPTION_KEY),
-      AdHocKafkaSourceProvider.TIME_FORMAT_OPTION_KEY + " must be set.")
+  if (sourceOptions.contains(STARTING_TIME_OPTION_KEY) ||
+    sourceOptions.contains(ENDING_TIME_OPTION_KEY)) {
+    assert(sourceOptions.contains(TIME_FORMAT_OPTION_KEY),
+      TIME_FORMAT_OPTION_KEY + " must be set.")
   }
 
   private val pollTimeoutMs = sourceOptions.getOrElse(
@@ -57,7 +60,7 @@ class AdHocKafkaRelation(
     // Leverage the KafkaReader to obtain the relevant partition offsets
     val (fromPartitionOffsets, untilPartitionOffsets) = {
       try {
-        getPartitionOffsetsRanger(kafkaOffsetReader, uniqueGroupId)
+        getPartitionOffsetsRange(kafkaOffsetReader, uniqueGroupId)
       } finally {
         kafkaOffsetReader.close()
       }
@@ -85,7 +88,7 @@ class AdHocKafkaRelation(
       if (multiplyFactor != -1) {
         val step = (untilOffset - fromOffset) / multiplyFactor
         if (step == 0) return defafultValue
-        // when 
+        // when
         (fromOffset until untilOffset by step) map { i =>
           (i, Math.min(i + step, untilOffset))
         }
@@ -163,35 +166,29 @@ class AdHocKafkaRelation(
     }
   }
 
-  private def getPartitionOffsetsRanger(kafkaOffsetReader: AdHocKafkaOffsetReader, uniqueGroupId: String):
+  private def getPartitionOffsetsRange(kafkaOffsetReader: AdHocKafkaOffsetReader, uniqueGroupId: String):
   (Map[TopicPartition, Long], Map[TopicPartition, Long]) = {
+    val dateFormat = sourceOptions.get(TIME_FORMAT_OPTION_KEY)
 
-    if (sourceOptions.contains(AdHocKafkaSourceProvider.STARTING_TIME_OPTION_KEY)
-      && sourceOptions.contains(AdHocKafkaSourceProvider.ENDING_TIME_OPTION_KEY)) {
-      (kafkaOffsetReader.fetchStartingOffsetsByTime(
-        sourceOptions.get(AdHocKafkaSourceProvider.STARTING_TIME_OPTION_KEY).get,
-        sourceOptions.get(AdHocKafkaSourceProvider.TIME_FORMAT_OPTION_KEY).get),
-        kafkaOffsetReader.fetchEndingOffsetsByTime(
-          sourceOptions.get(AdHocKafkaSourceProvider.ENDING_TIME_OPTION_KEY).get,
-          sourceOptions.get(AdHocKafkaSourceProvider.TIME_FORMAT_OPTION_KEY).get))
-    } else if (sourceOptions.contains(AdHocKafkaSourceProvider.STARTING_TIME_OPTION_KEY)
-      && !sourceOptions.contains(AdHocKafkaSourceProvider.ENDING_TIME_OPTION_KEY)) {
-      (kafkaOffsetReader.fetchStartingOffsetsByTime(
-        sourceOptions.get(AdHocKafkaSourceProvider.STARTING_TIME_OPTION_KEY).get,
-        sourceOptions.get(AdHocKafkaSourceProvider.TIME_FORMAT_OPTION_KEY).get),
-        getPartitionOffsets(kafkaOffsetReader, endingOffsets))
-    } else if (!sourceOptions.contains(AdHocKafkaSourceProvider.STARTING_TIME_OPTION_KEY)
-      && sourceOptions.contains(AdHocKafkaSourceProvider.ENDING_TIME_OPTION_KEY)) {
-      (getPartitionOffsets(kafkaOffsetReader, startingOffsets),
-        kafkaOffsetReader.fetchEndingOffsetsByTime(
-          sourceOptions.get(AdHocKafkaSourceProvider.ENDING_TIME_OPTION_KEY).get,
-          sourceOptions.get(AdHocKafkaSourceProvider.TIME_FORMAT_OPTION_KEY).get))
-    } else if (sourceOptions.contains(AdHocKafkaSourceProvider.RECENT_OPTION_KEY)) {
-      (kafkaOffsetReader.fetchRecentNumOffsets(
-        sourceOptions.get(AdHocKafkaSourceProvider.RECENT_OPTION_KEY).get.toLong),
-        getPartitionOffsets(kafkaOffsetReader, endingOffsets))
-    } else {
-      (getPartitionOffsets(kafkaOffsetReader, startingOffsets), getPartitionOffsets(kafkaOffsetReader, endingOffsets))
+    def fetchStartingOffsetsByTime(time: String) = {
+      kafkaOffsetReader.fetchStartingOffsetsByTime(time, dateFormat.get)
+    }
+
+    def fetchEndingOffsetsByTime(time: String) = {
+      kafkaOffsetReader.fetchEndingOffsetsByTime(time, dateFormat.get)
+    }
+
+    (sourceOptions.get(RECENT_OPTION_KEY), sourceOptions.get(STARTING_TIME_OPTION_KEY), sourceOptions.get(ENDING_TIME_OPTION_KEY)) match {
+      case (Some(rok), _, _) =>
+        (kafkaOffsetReader.fetchRecentNumOffsets(rok.toLong), getPartitionOffsets(kafkaOffsetReader, endingOffsets))
+      case (None, Some(left), Some(right)) =>
+        (fetchStartingOffsetsByTime(left), fetchEndingOffsetsByTime(right))
+      case (None, Some(left), None) =>
+        (fetchStartingOffsetsByTime(left), getPartitionOffsets(kafkaOffsetReader, endingOffsets))
+      case (None, None, Some(right)) =>
+        (getPartitionOffsets(kafkaOffsetReader, startingOffsets), fetchEndingOffsetsByTime(right))
+      case (None, None, None) =>
+        (getPartitionOffsets(kafkaOffsetReader, startingOffsets), getPartitionOffsets(kafkaOffsetReader, endingOffsets))
     }
 
   }

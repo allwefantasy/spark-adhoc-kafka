@@ -1,11 +1,12 @@
 package org.apache.spark.sql.kafka010
 
 
-import java.text.SimpleDateFormat
 import java.{util => ju}
 
 import org.apache.kafka.common.TopicPartition
 import org.apache.spark.util.{ThreadUtils, UninterruptibleThread}
+import org.joda.time.DateTime
+import org.joda.time.format.DateTimeFormat
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
@@ -31,7 +32,7 @@ class AdHocKafkaOffsetReader(
   }
 
   def convertTimestamp(timeString: String, timeFormat: String): java.lang.Long = {
-    new SimpleDateFormat(timeFormat).parse(timeString).getTime
+    DateTime.parse(timeString, DateTimeFormat.forPattern(timeFormat)).toDate.getTime
   }
 
 
