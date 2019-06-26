@@ -5,7 +5,9 @@ filter data.
 
 ## Requirements
 
-This library requires Spark 2.4+ (tested). Some older versions of Spark may work too but they are not officially supported.
+This library requires Spark 2.4+ (tested) and Kafka 0.10.0+. 
+Some older versions of Spark may work too but they are not officially supported.
+
 
 ## Liking 
 
@@ -16,7 +18,7 @@ You can link against this library in your program at the following coordinates:
 ```sql
 groupId: tech.mlsql
 artifactId: spark-adhoc-kafka_2.11
-version: 0.1.0
+version: 0.1.1
 ```
 
 ## Usage
