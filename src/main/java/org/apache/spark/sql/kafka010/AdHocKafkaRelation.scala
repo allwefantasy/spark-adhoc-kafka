@@ -75,11 +75,14 @@ class AdHocKafkaRelation(
     def generateOffsetRange(fromOffset: Long, untilOffset: Long): Seq[(Long, Long)] = {
 
       val defafultValue = Seq((fromOffset, untilOffset))
+
+
       if (multiplyFactor != -1) {
         val step = (untilOffset - fromOffset) / multiplyFactor
         if (step == 0) return defafultValue
+        // when 
         (fromOffset until untilOffset by step) map { i =>
-          (i, i + step)
+          (i, Math.min(i + step, untilOffset))
         }
       } else if (maxSizePerPartition != -1) {
         val maxRange = untilOffset - fromOffset
@@ -88,7 +91,7 @@ class AdHocKafkaRelation(
         if (step == 0) return defafultValue
 
         (fromOffset until untilOffset by step) map { i =>
-          (i, i + step)
+          (i, Math.min(i + step, untilOffset))
         }
       } else {
         defafultValue

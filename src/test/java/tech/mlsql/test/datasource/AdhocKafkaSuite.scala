@@ -66,7 +66,7 @@ class AdhocKafkaSuite extends QueryTest with SharedSQLContext with KafkaTest {
     testUtils.sendMessages(topic, Array("20"), Some(2))
 
     // Specify explicit earliest and latest offset values
-    val df = createDF(topic,
+    var df = createDF(topic,
       withOptions = Map(
         "startingOffsets" -> "earliest",
         "endingOffsets" -> "latest",
@@ -74,6 +74,18 @@ class AdhocKafkaSuite extends QueryTest with SharedSQLContext with KafkaTest {
     )
     assert(df.rdd.partitions.size == 5)
     assert(df.count() == 21)
+
+    // Specify explicit earliest and latest offset values
+    df = createDF(topic,
+      withOptions = Map(
+        "startingOffsets" -> "earliest",
+        "endingOffsets" -> "latest",
+        "multiplyFactor" -> "3")
+    )
+    assert(df.rdd.partitions.size == 9)
+    assert(df.count() == 21)
+
+
   }
 
 }
