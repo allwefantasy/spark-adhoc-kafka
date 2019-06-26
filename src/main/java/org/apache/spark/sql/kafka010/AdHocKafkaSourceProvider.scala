@@ -224,12 +224,16 @@ class AdHocKafkaSourceProvider extends KafkaSourceProvider {
   }
 }
 
-object AdHocKafkaSourceProvider extends Logging{
+object AdHocKafkaSourceProvider extends Logging {
   private val STRATEGY_OPTION_KEYS = Set("subscribe", "subscribepattern", "assign")
   private[kafka010] val STARTING_OFFSETS_OPTION_KEY = "startingoffsets"
   private[kafka010] val ENDING_OFFSETS_OPTION_KEY = "endingoffsets"
   private[kafka010] val MULTIPLY_FACTOR = "multiplyFactor"
   private[kafka010] val MAX_SIZE_PER_PARTITION = "maxSizePerPartition"
+  private[kafka010] val STARTING_TIME_OPTION_KEY = "startingTime"
+  private[kafka010] val ENDING_TIME_OPTION_KEY = "endingTime"
+  private[kafka010] val TIME_FORMAT_OPTION_KEY = "timeFormat"
+  private[kafka010] val RECENT_OPTION_KEY = "recentNum"
   private val FAIL_ON_DATA_LOSS_OPTION_KEY = "failondataloss"
   private val MIN_PARTITIONS_OPTION_KEY = "minpartitions"
 

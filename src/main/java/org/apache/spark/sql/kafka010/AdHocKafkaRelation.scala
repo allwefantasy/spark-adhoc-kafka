@@ -27,6 +27,12 @@ class AdHocKafkaRelation(
   assert(endingOffsets != EarliestOffsetRangeLimit,
     "Ending offset not allowed to be set to earliest offsets.")
 
+  if (sourceOptions.contains(AdHocKafkaSourceProvider.STARTING_TIME_OPTION_KEY) ||
+    sourceOptions.contains(AdHocKafkaSourceProvider.ENDING_TIME_OPTION_KEY)) {
+    assert(sourceOptions.contains(AdHocKafkaSourceProvider.TIME_FORMAT_OPTION_KEY),
+      AdHocKafkaSourceProvider.TIME_FORMAT_OPTION_KEY + " must be set.")
+  }
+
   private val pollTimeoutMs = sourceOptions.getOrElse(
     "kafkaConsumer.pollTimeoutMs",
     (sqlContext.sparkContext.conf.getTimeAsSeconds(
@@ -42,7 +48,7 @@ class AdHocKafkaRelation(
     // id. Hence, we should generate a unique id for each query.
     val uniqueGroupId = s"spark-kafka-relation-${UUID.randomUUID}"
 
-    val kafkaOffsetReader = new KafkaOffsetReader(
+    val kafkaOffsetReader = new AdHocKafkaOffsetReader(
       strategy,
       KafkaSourceProvider.kafkaParamsForDriver(specifiedKafkaParams),
       sourceOptions,
@@ -51,8 +57,7 @@ class AdHocKafkaRelation(
     // Leverage the KafkaReader to obtain the relevant partition offsets
     val (fromPartitionOffsets, untilPartitionOffsets) = {
       try {
-        (getPartitionOffsets(kafkaOffsetReader, startingOffsets),
-          getPartitionOffsets(kafkaOffsetReader, endingOffsets))
+        getPartitionOffsetsRanger(kafkaOffsetReader, uniqueGroupId)
       } finally {
         kafkaOffsetReader.close()
       }
@@ -156,6 +161,39 @@ class AdHocKafkaRelation(
       case SpecificOffsetRangeLimit(partitionOffsets) =>
         validateTopicPartitions(partitions, partitionOffsets)
     }
+  }
+
+  private def getPartitionOffsetsRanger(kafkaOffsetReader: AdHocKafkaOffsetReader, uniqueGroupId: String):
+  (Map[TopicPartition, Long], Map[TopicPartition, Long]) = {
+
+    if (sourceOptions.contains(AdHocKafkaSourceProvider.STARTING_TIME_OPTION_KEY)
+      && sourceOptions.contains(AdHocKafkaSourceProvider.ENDING_TIME_OPTION_KEY)) {
+      (kafkaOffsetReader.fetchStartingOffsetsByTime(
+        sourceOptions.get(AdHocKafkaSourceProvider.STARTING_TIME_OPTION_KEY).get,
+        sourceOptions.get(AdHocKafkaSourceProvider.TIME_FORMAT_OPTION_KEY).get),
+        kafkaOffsetReader.fetchEndingOffsetsByTime(
+          sourceOptions.get(AdHocKafkaSourceProvider.ENDING_TIME_OPTION_KEY).get,
+          sourceOptions.get(AdHocKafkaSourceProvider.TIME_FORMAT_OPTION_KEY).get))
+    } else if (sourceOptions.contains(AdHocKafkaSourceProvider.STARTING_TIME_OPTION_KEY)
+      && !sourceOptions.contains(AdHocKafkaSourceProvider.ENDING_TIME_OPTION_KEY)) {
+      (kafkaOffsetReader.fetchStartingOffsetsByTime(
+        sourceOptions.get(AdHocKafkaSourceProvider.STARTING_TIME_OPTION_KEY).get,
+        sourceOptions.get(AdHocKafkaSourceProvider.TIME_FORMAT_OPTION_KEY).get),
+        getPartitionOffsets(kafkaOffsetReader, endingOffsets))
+    } else if (!sourceOptions.contains(AdHocKafkaSourceProvider.STARTING_TIME_OPTION_KEY)
+      && sourceOptions.contains(AdHocKafkaSourceProvider.ENDING_TIME_OPTION_KEY)) {
+      (getPartitionOffsets(kafkaOffsetReader, startingOffsets),
+        kafkaOffsetReader.fetchEndingOffsetsByTime(
+          sourceOptions.get(AdHocKafkaSourceProvider.ENDING_TIME_OPTION_KEY).get,
+          sourceOptions.get(AdHocKafkaSourceProvider.TIME_FORMAT_OPTION_KEY).get))
+    } else if (sourceOptions.contains(AdHocKafkaSourceProvider.RECENT_OPTION_KEY)) {
+      (kafkaOffsetReader.fetchRecentNumOffsets(
+        sourceOptions.get(AdHocKafkaSourceProvider.RECENT_OPTION_KEY).get.toLong),
+        getPartitionOffsets(kafkaOffsetReader, endingOffsets))
+    } else {
+      (getPartitionOffsets(kafkaOffsetReader, startingOffsets), getPartitionOffsets(kafkaOffsetReader, endingOffsets))
+    }
+
   }
 
   override def toString: String =
