@@ -38,7 +38,8 @@ val df = spark
       .option( "endingOffsets" , "latest")                          
       .option("multiplyFactor","2") // the parallelism is  multiplyFactor * num of kafka partitions
       .option("maxSizePerPartition","100000") // the parallelism is  total records/ maxSizePerPartition  
-      .option("subscribe", topic).load().selectExpr("CAST(value AS STRING)")
+      .option("subscribe", topic)
+      .load().selectExpr("CAST(value AS STRING)")
 
 ```
 
@@ -73,7 +74,8 @@ val df = spark
       .option("timeFormat","yyyyMMdd") 
       .option("startingTime","20170101") 
       .option("endingTime","20180101")   
-      .option("subscribe", topic).load().selectExpr("CAST(value AS STRING)")
+      .option("subscribe", topic)
+      .load().selectExpr("CAST(value AS STRING)")
 
 ```
 
@@ -81,11 +83,15 @@ MLSQL:
 
 ```sql
 load adHocKafka.`topic` where 
+
 kafka.bootstrap.servers="127.0.0.1:9200"
+
 and multiplyFactor="2" 
-timeFormat="yyyyMMdd"
-startingTime="20170101"
-endingTime="20180101"
+
+and timeFormat="yyyyMMdd"
+and startingTime="20170101"
+and endingTime="20180101"
+
 as table1;
 
 select count(*) from table1 where value like "%yes%" as output;
