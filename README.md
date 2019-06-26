@@ -94,7 +94,11 @@ and endingTime="20180101"
 
 as table1;
 
-select count(*) from table1 where value like "%yes%" as output;
+select cast(value as String) as textValue from table1 
+as table2;
+
+select count(*) from table2 where textValue like "%yes%" 
+as output;
 ```
 
 
