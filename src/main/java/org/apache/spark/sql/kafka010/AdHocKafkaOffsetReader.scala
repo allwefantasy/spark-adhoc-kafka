@@ -12,10 +12,6 @@ import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 
-/**
-  * @author dongbin@guahao.com
-  *         19-6-26 上午12:38
-  */
 class AdHocKafkaOffsetReader(
                               consumerStrategy: ConsumerStrategy,
                               driverKafkaParams: ju.Map[String, Object],
